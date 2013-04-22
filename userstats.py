@@ -1,22 +1,21 @@
 #!/usr/bin/env python
 
-import os
+import os, sys
+import ConfigParser
 from time import sleep, strftime
 from pwd import getpwuid
-from argparse import ArgumentParser
 from pymongo import MongoClient
 from socket import gethostname
 from datetime import datetime
 from re import sub
+from daemon import Daemon
 
 _CLOCK_TICKS = os.sysconf("SC_CLK_TCK")
 stats, stats_red = {}, {}
-mongoserver = '127.0.0.1'
-mongoport = 27017
-database = 'usagedata'
+mongoserver, mongoport, database, sleeptime, threshold = [0] * 5
 hostname = sub('-', '', gethostname().split('.')[0])
-sleeptime = 60
-threshold = 5
+pidfile = '/var/run/monitor.pid'
+configfile = '/etc/monitor/monitor.conf'
 
 class Process:
     def __init__(self, pid):
@@ -27,6 +26,7 @@ class Process:
             self.name = ''
             self.uid = '0'
             statusf = 0
+        self.vmsize, self.vmrss = [0] * 2
         if statusf:
             for line in statusf:
                 if line.startswith('Name:'): self.name = line.split()[1]
@@ -61,6 +61,15 @@ def getuid(uid):
     user = getpwuid(int(uid))[0]
     return user
 
+def configparse():
+    config = ConfigParser.SafeConfigParser()
+    config.read(configfile)
+    global mongoserver, mongoport, database, sleeptime, threshold
+    mongoserver = config.get('general', 'mongoserver')
+    mongoport = config.getint('general', 'mongoport')
+    database = config.get('general', 'database')
+    sleeptime = config.getint('general', 'sleeptime')
+    threshold = config.getint('general', 'threshold')
 
 def parseargs():
     p = ArgumentParser()
@@ -103,32 +112,38 @@ def reduce():
 
 def flush():
     global stats, stats_red
-    if not params['verbose']:
-        db = MongoClient(mongoserver, mongoport)[database]
-        collection = db[hostname]
-        rec = {'date': datetime.now(), 'data': stats_red }
-        collection.insert(rec)
+    db = MongoClient(mongoserver, mongoport)[database]
+    collection = db[hostname]
+    rec = {'date': datetime.now(), 'data': stats_red }
+    collection.insert(rec)
     stats, stats_red = {}, {}
 
-def run():
-    i = 0
-    while True:
-        if i > threshold:
-            reduce();
-            if params['verbose']: print stats_red
-            flush(); i = 0
-        get_rusage()
-        i = i + 1
-        sleep(sleeptime)
-
-def _main():
-    global stats
-    if not params['daemonize']:
-        run()
-    else:
-        pass
+class Monitor(Daemon):
+    def run(self):
+        configparse()
+        i = 0
+        while True:
+            if i > threshold:
+                reduce();
+                flush(); i = 0
+            get_rusage()
+            i = i + 1
+            sleep(sleeptime)
 
 
 if __name__ == '__main__':
-    params = parseargs()
-    _main()
+    srv = Monitor(pidfile)
+    if len(sys.argv) == 2:
+        if sys.argv[1] == 'start':
+            srv.start()
+        elif sys.argv[1] == 'stop':
+            srv.stop()
+        elif sys.argv[1] == 'restart':
+            srv.restart()
+        else:
+            print 'Unknown command'
+            sys.exit(2)
+        sys.exit(0)
+    else:
+        print 'Usage %s start|stop|restart' % sys.argv[0]
+        sys.exit(2)
