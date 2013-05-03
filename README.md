@@ -3,7 +3,8 @@ montools
 
 Monitoring tools
 
-usage: ldapcheck.py [-h] -s SERVER -p PORT -b BASEDN [--filter FILTER]
+Ldap check usage:
+ldapcheck.py [-h] -s SERVER -p PORT -b BASEDN [--filter FILTER]
                     [--username USERNAME] [--password PASSWORD] [--secure]
                     [-t TIMEOUT] [-v]
 
@@ -18,3 +19,7 @@ optional arguments:
   --secure
   -t TIMEOUT, --timeout TIMEOUT
   -v, --verbose
+
+Host maintenance in zabbix On/Off:
+
+zabbixmaintenance.py SERVERNAME [on|off]
