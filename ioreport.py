@@ -49,12 +49,10 @@ def main(dir):
     if DEBUG: print fname, results['write'], results['read'], results['listdir'], results['stat']
     os.unlink(fname)
     try:
-        zbxsend = subprocess.check_call([ ZBXSENDER, '-z', ZBXSERVER, '-s', gethostname(),
-            '-k', 'io.report.write[%s]' % argv[1], '-o', str(results['write']),
-            '-k', 'io.report.read[%s]' % argv[1], '-o', str(results['read']),
-            '-k', 'io.report.listdir[%s]' % argv[1], '-o', str(results['listdir']),
-            '-k', 'io.report.stat[%s]' % argv[1], '-o', str(results['stat'])
-             ])
+        with open('/dev/null', 'w') as dnull:
+            for key in results.keys():
+                subprocess.check_call([ ZBXSENDER, '-z', ZBXSERVER, '-s', gethostname(),
+                    '-k', 'io.report.%s[%s]' % (key, argv[1]), '-o', str(results[key]) ], stdout = dnull)
     except subprocess.CalledProcessError as e:
         if DEBUG: print e
         return()
