@@ -28,4 +28,4 @@ solrreplicationmonitoring.py
 
 Returns number of cores with failed replication among the checked cores.
 Usage:
-solrreplicationcheck.py <SLAVE SOLR IP> <PORT> <NUM OF CORES TO CHECK>
+solrreplicationcheck.py SLAVESOLRIP PORT NUMOFCORESTOCHECK
